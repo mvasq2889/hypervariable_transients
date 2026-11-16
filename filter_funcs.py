@@ -207,7 +207,7 @@ def catalog_check(locus):
 
 #query ANTARES alert stream
 #goes by 10x10 deg^2 chunks, retries until it happens
-def query_by_chunk(mjd_start, mjd_end, ra_min, ra_max, dec_min, dec_max,
+def query_by_chunk(ra_min, ra_max, dec_min, dec_max, mjd_start=Time.now().mjd-1, mjd_end=Time.now().mjd, 
                    faint_lim=21, min_ndet=3, max_results=10000,
                    retries=3, wait=180):
     # set the query to fetch loci with alerts matching search criteria
@@ -262,7 +262,7 @@ def get_target_info(locus, oid):
                                      'epoch','parallax','lambda_eff','u_mag','g_mag','r_mag','i_mag','z_mag',
                                      'optical_prov','gaia_bp_mag','gaia_rp_mag','gaia_g_mag','h_mag',
                                      'delta_ra','delta_dec','can_offset','inertial','n_exposures','priority',
-                                     'active','expiration_date','observed'])
+                                     'active','expiration_date','observed', 'added_on'])
     target.loc[0,'fiber_type'] = 'BOSS'
     for cat in locus.catalog_objects:
         if cat == 'sdss_gals':
@@ -277,22 +277,34 @@ def get_target_info(locus, oid):
             target.loc[0, 'gaia_bp_mag'] = locus.catalog_objects[cat][0]['Phot Bp Mean Mag']
             target.loc[0, 'gaia_rp_mag'] = locus.catalog_objects[cat][0]['Phot Rp Mean Mag']
             target.loc[0, 'gaia_g_mag'] = locus.catalog_objects[cat][0]['Phot G Mean Mag']
+            target.loc[0, 'epoch'] = locus.catalog_objects[cat][0]['Ref Epoch']
         elif cat == '2mass_xsc':
             target.loc[0,'twomass_pts_key']= locus.catalog_objects[cat][0]['Id']
 
     target.loc[0,'sky_brightness_mode'] = 'dark'
     target.loc[0, 'ra'] = locus.ra
     target.loc[0,'dec'] = locus.dec
+    target.loc[0, 'added_on'] = Time.now().to_value('iso', subfmt='date')
 
-    passband = locus.alerts[-1].properties['ant_passband']
-    if locus.alerts[-1].properties['ant_survey'] == 4: #lsst
-        if passband != 'y':
-            target[passband+'_mag'].loc[0] = oid['lsst_'+passband]
-    elif locus.alerts[-1].properties['ant_survey'] == 1:
-        if passband == 'R':
-            target.loc[0,'r_mag'] = oid['ztf_R']
+    band = oid['band']
+
+    if band[0] == 'l' and band[-1] != 'y':
+        target.loc[0, band[-1]+'_mag'] = oid['m_sci']
+    if band[0] == 'z':
+        if band[-1] == 'R':
+            target.loc[0,'r_mag'] = oid['m_sci']
         else:
-            target.loc[0,passband+'_mag'] = oid['ztf_'+passband]
+            target.loc[0, band[-1]+'_mag'] = oid['m_sci']
+            
+    
+##    if locus.alerts[-1].properties['ant_survey'] == 4: #lsst
+##        if passband != 'y':
+##            target[passband+'_mag'].loc[0] = oid['lsst_'+passband]
+##    elif locus.alerts[-1].properties['ant_survey'] == 1:
+##        if passband == 'R':
+##            target.loc[0,'r_mag'] = oid['ztf_R']
+##        else:
+##            target.loc[0,passband+'_mag'] = oid['ztf_'+passband]
 
     target.loc[0, 'can_offset'] = True
     target.loc[0, 'n_exposures'] = 3
