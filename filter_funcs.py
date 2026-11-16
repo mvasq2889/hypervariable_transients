@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from astropy.time import Time
 import pandas as pd
 import math
-from astropy.coordinates import Angle, SkyCoord
-import astropy.units as u
 import time
 import warnings
 import itertools
