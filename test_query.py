@@ -6,8 +6,8 @@ from astropy.time import Time
 
 oid_sample = 0
 too_targets = 0
-ra_s = np.arange(50, 60, 10)
-dec_s = np.arange(-50, -40, 10)
+ra_s = np.arange(0, 360, 10)
+dec_s = np.arange(-90, 90, 10)
 count = 0
 
 for ra, dec in list(itertools.product(ra_s, dec_s)):
@@ -38,11 +38,15 @@ for ra, dec in list(itertools.product(ra_s, dec_s)):
                     else:
                         target = pd.DataFrame(get_target_info(locus, oid_here), index=[-1])
                         too_targets = pd.concat([too_targets, target]).reset_index(drop=True)
+                oid_here = pd.DataFrame(oid_here, index = [-1])
+                oid_sample = pd.concat([oid_sample, oid_here]).reset_index(drop=True)
+                
 
 if isinstance(too_targets, int) == 1:
     print(f'no hypervariables, checked {count} loci')
 else:
-##    cwd = os.getcwd()
-##    too_targets.to_csv(f'{cwd}/query_data/too_targets_{int(Time.now().mjd)}.csv')
-    print(f'{too_targets}\n\nchecked {count} loci')
+    cwd = os.getcwd()
+    too_targets.to_csv(f'{cwd}/query_data/too_targets_{int(Time.now().mjd)}.csv')
+    oid_sample.to_csv(f'{cwd}/query_data/oid_sample_{int(Time.now().mjd)}.csv')
+##    print(f'{too_targets}\n\nchecked {count} loci\n\n{oid_sample}')
 

@@ -268,16 +268,16 @@ def get_target_info(locus, oid):
         elif cat == 'sdss_stars':
             target.loc[0,'sdss_id'] = locus.catalog_objects[cat][0]['Objid']
         elif cat == 'gaia_dr3_gaia_source':
-            target.loc[0,'gaia_dr3_source_id'] = locus.catalog_objects[cat][0]['Source Id']
-            target.loc[0, 'parallax'] = locus.catalog_objects[cat][0]['Parallax']
-            target.loc[0, 'pmdec'] = locus.catalog_objects[cat][0]['Pmdec']
-            target.loc[0, 'pmra'] = locus.catalog_objects[cat][0]['Pmra']
-            target.loc[0, 'gaia_bp_mag'] = locus.catalog_objects[cat][0]['Phot Bp Mean Mag']
-            target.loc[0, 'gaia_rp_mag'] = locus.catalog_objects[cat][0]['Phot Rp Mean Mag']
-            target.loc[0, 'gaia_g_mag'] = locus.catalog_objects[cat][0]['Phot G Mean Mag']
-            target.loc[0, 'epoch'] = locus.catalog_objects[cat][0]['Ref Epoch']
+            target.loc[0,'gaia_dr3_source_id'] = locus.catalog_objects[cat][0]['source_id']
+            target.loc[0, 'parallax'] = locus.catalog_objects[cat][0]['parallax']
+            target.loc[0, 'pmdec'] = locus.catalog_objects[cat][0]['pmdec']
+            target.loc[0, 'pmra'] = locus.catalog_objects[cat][0]['pmra']
+            target.loc[0, 'gaia_bp_mag'] = locus.catalog_objects[cat][0]['phot_bp_mean_mag']
+            target.loc[0, 'gaia_rp_mag'] = locus.catalog_objects[cat][0]['phot_rp_mean_mag']
+            target.loc[0, 'gaia_g_mag'] = locus.catalog_objects[cat][0]['phot_g_mean_mag']
+            target.loc[0, 'epoch'] = locus.catalog_objects[cat][0]['ref_epoch']
         elif cat == '2mass_xsc':
-            target.loc[0,'twomass_pts_key']= locus.catalog_objects[cat][0]['Id']
+            target.loc[0,'twomass_pts_key']= locus.catalog_objects[cat][0]['id']
 
     target.loc[0,'sky_brightness_mode'] = 'dark'
     target.loc[0, 'ra'] = locus.ra
