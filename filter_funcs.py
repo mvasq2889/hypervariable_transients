@@ -29,7 +29,7 @@ def lsst_quality(alert):
     if 'lsst_diaSource_ssObjectId' in alert.properties:
         quality &= alert.properties['lsst_diaSource_ssObjectId'] in (0, None, "0")
     return quality
-    
+
 #extract data
 def lsst_alert(alert):
     obs_date = float(alert.properties['lsst_diaSource_midpointMjdTai'])
@@ -53,6 +53,7 @@ def lsst_alert(alert):
        
     return data
 
+
 #ZTF
 #quality check
 def ztf_quality(alert):
@@ -69,36 +70,6 @@ def ztf_quality(alert):
 #extract data
 #uses formula from 260609 6/15 markdown cell
 def ztf_alert(alert):
-    bands = ['x', 'g', 'R', 'i']
-    
-    band_id = alert.properties['ztf_fid']
-    obs_date = float(alert.properties['ant_mjd'])
-    ant_mag = alert.properties['ant_mag']
-    temp_mag = alert.properties['ztf_magnr']
-    temp_mag_err = alert.properties['ztf_sigmagnr']
-    diff_img_mag = alert.properties['ztf_magpsf']
-    diff_img_mag_err = alert.properties['ztf_sigmapsf']
-    
-    if alert.properties['ztf_isdiffpos'] == 'f' or alert.properties['ztf_isdiffpos'] == 0:
-        pos_or_neg = -1
-        m =  (1 - 10.**(0.4*(temp_mag - diff_img_mag)))
-    else:
-        pos_or_neg = 1
-        m = (10.**(0.4*(temp_mag - diff_img_mag)) + 1)
-
-    if m <= 0.01:
-        diff_mag = 10**(-10)
-    else:
-        diff_mag = -2.5* np.log10(m)
-    oid_mag = diff_mag + temp_mag
-    band = 'ztf_' + str(bands[band_id])
-    data = {'mjd': obs_date, 'band': band, 'm_sci': oid_mag, 'm_template': temp_mag, 'm_diff': diff_img_mag, 
-            'delta_m': diff_mag, 'pos_or_neg': pos_or_neg}
-    return data
-
-#extract data
-#same as above with error propagation
-def ztf_alert_err(alert):
     bands = ['x', 'g', 'R', 'i']
     band_id = alert.properties['ztf_fid']
     obs_date = float(alert.properties['ant_mjd'])
@@ -136,44 +107,20 @@ def ztf_alert_err(alert):
                 'm_diff': diff_img_mag, 'm_diff_err': diff_img_mag_err, 'delta_m': diff_mag, 'delta_m_err': diff_mag_err, 'pos_or_neg': pos_or_neg, 'm_sci_flag': flag}
         return data
 
-#extract data
-#m_sci is actually absolute magnitude
-def ztf_alert2(alert):
-    bands = ['x', 'g', 'R', 'i']
-    
-    band_id = alert.properties['ztf_fid']
-    obs_date = float(alert.properties['ant_mjd'])
-    ant_mag = alert.properties['ant_mag']
-    temp_mag = alert.properties['ztf_magnr']
-    temp_mag_err = alert.properties['ztf_sigmagnr']
-    diff_img_mag = alert.properties['ztf_magpsf']
-    diff_img_mag_err = alert.properties['ztf_sigmapsf']
-    
-    if alert.properties['ztf_isdiffpos'] == 'f' or alert.properties['ztf_isdiffpos'] == 0:
-        pos_or_neg = -1
-    else:
-        pos_or_neg = 1
-
-    oid_mag = -2.5*np.log(10**(-0.4*temp_mag) + pos_or_neg*10**(-0.4*diff_img_mag))
-    diff_mag = abs(oid_mag - temp_mag)
-    band = 'ztf_' + str(bands[band_id])
-    data = {'mjd': obs_date, 'band': band, 'm_sci': oid_mag, 'm_template': temp_mag, 'm_diff': diff_img_mag, 
-            'delta_m': diff_mag, 'pos_or_neg': pos_or_neg}
-    return data
 
 #unpacks all alerts (that pass a quality test)
 def oid_get_info(alerts):
     new_alert = alerts[-1]
     oid = None
-    #snr check
+    
     if new_alert.properties['ant_survey'] == 1:
-        if ztf_quality(new_alert) == True:
-            oid = ztf_alert_err(new_alert)
+        if ztf_quality(new_alert) == True and (1.0857/new_alert.properties['ztf_sigmapsf']) < 8:
+            oid = ztf_alert(new_alert)
     elif new_alert.properties['ant_survey'] == 4:
         if lsst_quality(new_alert) == True:
             oid = lsst_alert(new_alert)
-            
     return oid
+
 
 #catalog cross-matching
 #provided mostly from jessie
@@ -202,6 +149,7 @@ def catalog_check(locus):
         if alert_temp['ant_survey'] == 1 and ((alert_temp['ztf_sgscore1'] > 0.5 and alert_temp['ztf_distpsnr1'] < 1) or (alert_temp['ztf_sgscore2'] > 0.5 and alert_temp['ztf_distpsnr2'] < 1) or (alert_temp['ztf_sgscore3'] > 0.5 and alert_temp['ztf_distpsnr3'] < 1)):
             flags['ps1_pointlike'] = True
     return flags
+
 
 #query ANTARES alert stream
 #goes by 10x10 deg^2 chunks, retries until it happens
@@ -234,7 +182,8 @@ def query_by_chunk(ra_min, ra_max, dec_min, dec_max, mjd_start=Time.now().mjd-1,
                     f'— Reduce QUERY_DT or this window is incomplete.',
                     stacklevel=2
                 )
-            return get_ids(loci)
+            return loci
+##            return get_ids(loci)
         except Exception as e:
             if attempt < retries - 1:
                 print(f'  Chunk {mjd_start}–{mjd_end} failed (attempt {attempt+1}/{retries}): {e}.')
@@ -244,24 +193,15 @@ def query_by_chunk(ra_min, ra_max, dec_min, dec_max, mjd_start=Time.now().mjd-1,
                 # pdb.set_trace()
                 attempt = 0
 
-#gets ids from a list of ANTARES loci objects
-def get_ids(loci):
-    # print(loci)
-    loci_ids = []
-    for locus in loci:
-        loci_ids.append(locus.locus_id)
-    return loci_ids
 
 #gets info for ToO target generation, one oid at a time
 def get_target_info(locus, oid):
-    
     target = pd.DataFrame(columns = ['too_id','fiber_type','catalogid','sdss_id','gaia_dr3_source_id',
                                      'twomass_pts_key','sky_brightness_mode','ra','dec','pmra','pmdec',
                                      'epoch','parallax','lambda_eff','u_mag','g_mag','r_mag','i_mag','z_mag',
                                      'optical_prov','gaia_bp_mag','gaia_rp_mag','gaia_g_mag','h_mag',
                                      'delta_ra','delta_dec','can_offset','inertial','n_exposures','priority',
                                      'active','expiration_date','observed', 'added_on'])
-    target.loc[0,'fiber_type'] = 'BOSS'
     for cat in locus.catalog_objects:
         if cat == 'sdss_gals':
             target.loc[0,'sdss_id'] = locus.catalog_objects[cat][0]['Objid']
@@ -279,13 +219,7 @@ def get_target_info(locus, oid):
         elif cat == '2mass_xsc':
             target.loc[0,'twomass_pts_key']= locus.catalog_objects[cat][0]['id']
 
-    target.loc[0,'sky_brightness_mode'] = 'dark'
-    target.loc[0, 'ra'] = locus.ra
-    target.loc[0,'dec'] = locus.dec
-    target.loc[0, 'added_on'] = Time.now().to_value('iso', subfmt='date')
-
-    band = oid['band']
-
+    band = str(oid['band'])
     if band[0] == 'l' and band[-1] != 'y':
         target.loc[0, band[-1]+'_mag'] = oid['m_sci']
     if band[0] == 'z':
@@ -294,16 +228,11 @@ def get_target_info(locus, oid):
         else:
             target.loc[0, band[-1]+'_mag'] = oid['m_sci']
             
-    
-##    if locus.alerts[-1].properties['ant_survey'] == 4: #lsst
-##        if passband != 'y':
-##            target[passband+'_mag'].loc[0] = oid['lsst_'+passband]
-##    elif locus.alerts[-1].properties['ant_survey'] == 1:
-##        if passband == 'R':
-##            target.loc[0,'r_mag'] = oid['ztf_R']
-##        else:
-##            target.loc[0,passband+'_mag'] = oid['ztf_'+passband]
-
+    target.loc[0,'fiber_type'] = 'BOSS'
+    target.loc[0,'sky_brightness_mode'] = 'dark'
+    target.loc[0, 'ra'] = locus.ra
+    target.loc[0,'dec'] = locus.dec
+    target.loc[0, 'added_on'] = Time.now().to_value('iso', subfmt='date')
     target.loc[0, 'can_offset'] = True
     target.loc[0, 'n_exposures'] = 3
     target.loc[0, 'priority'] = 5
@@ -311,151 +240,3 @@ def get_target_info(locus, oid):
     target.loc[0, 'observed'] = False
     
     return target
-
-#make lightcurve from all alerts in a locus
-def lightcurve(alerts):
-    lc = 0
-    for alert in alerts:
-        if alert.properties['ant_survey'] == 4:
-            data = lsst_alert(alert)
-        if alert.properties['ant_survey'] == 1:
-            data = ztf_alert_err(alert)
-        else:
-            continue
-
-        if isinstance(lc, int) == 1:
-            lc = pd.DataFrame(data, index=[0])
-        else:
-            h = pd.DataFrame(data, index=[-1])
-            lc = pd.concat([lc, h]).reset_index(drop=True)
-        
-    return lc
-
-#make lightcuve from only quality alerts in a locus
-def lightcurve_quality(alerts):
-    lc = 0
-    for alert in alerts:
-        if alert.properties['ant_survey'] == 4:
-            lsst_pass = lsst_quality(alert)
-            if lsst_pass == True:
-                data = lsst_alert(alert)
-            else:
-                continue
-        elif alert.properties['ant_survey'] == 1:
-            ztf_pass = ztf_quality(alert)
-            if ztf_pass == True:
-                data = ztf_alert_err(alert)
-            else:
-                continue
-        else:
-            continue
-        
-        if isinstance(lc, int) == 1:
-            lc = pd.DataFrame(data, index=[0])
-        else:
-            h = pd.DataFrame(data, index=[-1])
-            lc = pd.concat([lc, h]).reset_index(drop=True)
-
-    return lc
-
-#plot quality lightcurve for a given oid
-def plot_lc(oid_id):
-    colors = {'ztf_g': 'green', 'ztf_R': 'orangered', 'ztf_i': 'black'}
-    fig, ax = plt.subplots(1,1, figsize=(9,6))
-    
-    locus = search.get_by_id(oid_id)
-    lc = lightcurve_quality(locus.alerts)
-    title = oid_id
-    flags_str = 'Flags: '
-
-    empty = 0
-    
-    for band in colors:
-        band_data = lc[(lc['band'] == band)]
-        if len(band_data) > 2:
-            ax.errorbar(band_data['mjd'], band_data['m_sci'], yerr=band_data['m_sci_err'], fmt='.', ms=2, lw=1, 
-                        c = colors[band], ecolor = colors[band], label=band, alpha = 0.5)
-            ax.hlines(y=np.average(band_data['m_template']), xmin = locus.properties['oldest_alert_observation_time'], 
-                      xmax= locus.properties['newest_alert_observation_time'], colors = colors[band], alpha = 0.3, ls = '--')
-        else:
-            empty += 1
-            
-    if empty == 3:
-        print(f'{oid_id}: not enough data')
-        plt.close()
-    else:
-        flags = catalog_check(locus)
-        for flag in flags:
-            if flags[flag] == True and len(flags_str) == 7:
-                flags_str += flag
-            elif flags[flag] == True:
-                flags_str += ', ' + flag
-        ax.set(ylim=(min(lc['m_sci'])-0.5, max(lc['m_sci'])+0.5))
-        ax.yaxis.set_inverted(True)
-        ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0.)
-    
-        if len(flags_str) > 7:
-            fig.suptitle(title + '\n' + flags_str + '\nmessed up alerts: ' + str(sum(lc['m_sci_flag'])), fontname = 'serif')
-        else:
-            fig.suptitle(title + '\n' + flags_str + 'None\nmessed up alerts: ' + str(sum(lc['m_sci_flag'])), fontname = 'serif')
-        plt.xlabel('MJD', fontname = 'serif')
-        ax.set_ylabel('$mag_{AB}$', fontname = 'serif')
-        ax.grid(alpha=0.25)
-        plt.tight_layout()
-        plt.show()
-
-def plot_lc2(oid_id):
-    colors = {'ztf_g': 'green', 'ztf_R': 'orangered', 'ztf_i': 'black'}
-    fig, ax = plt.subplots(1,2, figsize=(10,4), sharey=False)
-    
-    locus = search.get_by_id(oid_id)
-    lc = lightcurve(locus.alerts)
-    lc_q = lightcurve_quality(locus.alerts)
-    title = oid_id
-    flags_str = 'Flags: '
-
-    empty = 0
-    empty_q = 0
-    
-    for band in colors:
-        band_data = lc[(lc['band'] == band)]
-        band_data_q = lc_q[(lc_q['band'] == band)]
-        if len(band_data) > 2:
-            ax[0].errorbar(band_data['mjd'], band_data['m_sci'], yerr=band_data['m_sci_err'], fmt='.', ms=2, lw=1, c = colors[band], ecolor = colors[band], label=band, alpha = 0.5)
-            ax[0].hlines(y=np.average(band_data['m_template']), xmin = locus.properties['oldest_alert_observation_time'], xmax= locus.properties['newest_alert_observation_time'], 
-                          colors = colors[band], alpha = 0.3, ls = '--')
-        else:
-            empty += 1
-        if len(band_data_q) > 2:
-            ax[1].errorbar(band_data_q['mjd'], band_data_q['m_sci'], yerr=band_data_q['m_sci_err'], fmt='.', ms=2, lw=1, c = colors[band], ecolor = colors[band], label=band, alpha = 0.5)
-            ax[1].hlines(y=np.average(band_data_q['m_template']), xmin = locus.properties['oldest_alert_observation_time'], xmax= locus.properties['newest_alert_observation_time'], 
-                          colors = colors[band], alpha = 0.3, ls = '--')
-        else:
-            empty_q += 1
-    
-    if empty == 3:
-        print(f'{oid_id}: not enough data')
-        plt.close()
-    else:
-        flags = catalog_check(locus)
-        for flag in flags:
-            if flags[flag] == True and len(flags_str) == 7:
-                flags_str += flag
-            elif flags[flag] == True:
-                flags_str += ', ' + flag
-        ax[0].set(ylim=(min(lc['m_sci'])-0.5, max(lc['m_sci'])+0.5))
-        ax[1].set(ylim=(min(lc_q['m_sci'])-0.5, max(lc_q['m_sci'])+0.5))
-        ax[0].yaxis.set_inverted(True)
-        ax[1].yaxis.set_inverted(True)
-        ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0.)
-    
-        if len(flags_str) > 7:
-            fig.suptitle(title + '\n' + flags_str + '\nmessed up alerts: ' + str(sum(lc['m_sci_flag'])) + ', ' + str(sum(lc_q['m_sci_flag'])), fontname = 'serif')
-        else:
-            fig.suptitle(title + '\n' + flags_str + 'None\nmessed up alerts: ' + str(sum(lc['m_sci_flag'])) + ', ' + str(sum(lc_q['m_sci_flag'])), fontname = 'serif')
-        plt.xlabel('MJD', fontname = 'serif')
-        ax[0].set_ylabel('$mag_{AB}$', fontname = 'serif')
-        ax[1].set_ylabel('$mag_{AB}$', fontname = 'serif')
-        ax[0].grid(alpha=0.25)
-        ax[1].grid(alpha=0.25)
-        plt.tight_layout()
