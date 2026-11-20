@@ -9,14 +9,15 @@ too_targets = 0
 ra_s = np.arange(0, 360, 10)
 dec_s = np.arange(-90, 90, 10)
 count = 0
-
+start = 61361.5
 for ra, dec in list(itertools.product(ra_s, dec_s)):
     RA_MIN = float(ra)
     RA_MAX = float(RA_MIN + 10)
     DEC_MIN = float(dec)
     DEC_MAX = float(DEC_MIN + 10)
     
-    loci_ids = query_by_chunk(RA_MIN, RA_MAX, DEC_MIN, DEC_MAX, mjd_start = Time.now().mjd-2, mjd_end=Time.now().mjd-1)
+    loci_ids = query_by_chunk(RA_MIN, RA_MAX, DEC_MIN, DEC_MAX,
+                              mjd_start = start, mjd_end=start+1)
     print(f'({RA_MIN} - {RA_MAX}, {DEC_MIN} - {DEC_MAX}) : {len(loci_ids)}')
     count += len(loci_ids)
     for l_id in loci_ids:
@@ -46,7 +47,7 @@ if isinstance(too_targets, int) == 1:
     print(f'no hypervariables, checked {count} loci')
 else:
     cwd = os.getcwd()
-    too_targets.to_csv(f'{cwd}/test_data/too_targets_{int(Time.now().mjd)}.csv')
-    oid_sample.to_csv(f'{cwd}/test_data/oid_sample_{int(Time.now().mjd)}.csv')
+    too_targets.to_csv(f'{cwd}/test_data/too_targets_{start-0.5}.csv')
+    oid_sample.to_csv(f'{cwd}/test_data/oid_sample_{start-0.5}.csv')
 ##    print(f'{too_targets}\n\nchecked {count} loci\n\n{oid_sample}')
 
