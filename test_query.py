@@ -46,7 +46,7 @@ if isinstance(too_targets, int) == 1:
     print(f'no hypervariables, checked {count} loci')
 else:
     cwd = os.getcwd()
-    too_targets.to_csv(f'{cwd}/query_data/too_targets_{int(Time.now().mjd)}.csv')
-    oid_sample.to_csv(f'{cwd}/query_data/oid_sample_{int(Time.now().mjd)}.csv')
+    too_targets.to_csv(f'{cwd}/test_data/too_targets_{int(Time.now().mjd)}.csv')
+    oid_sample.to_csv(f'{cwd}/test_data/oid_sample_{int(Time.now().mjd)}.csv')
 ##    print(f'{too_targets}\n\nchecked {count} loci\n\n{oid_sample}')
 
